@@ -16,3 +16,14 @@ export function dayDiff(a: string, b: string): number {
   const db = Date.parse(b + "T00:00:00Z");
   return Math.round((da - db) / 86_400_000);
 }
+
+/** Current hour (0–23) in BOT_TZ. */
+export function localHour(now: Date = new Date()): number {
+  const h = now.toLocaleString("en-US", {
+    timeZone: BOT_TZ,
+    hour: "2-digit",
+    hour12: false,
+  });
+  // "24" can appear at midnight in some runtimes — normalize to 0.
+  return Number(h) % 24;
+}

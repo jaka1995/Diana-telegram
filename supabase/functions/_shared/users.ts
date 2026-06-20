@@ -9,7 +9,9 @@ export interface User {
   username: string | null;
   first_name: string | null;
   email: string | null;
+  source: string | null;
   state: string;
+  pending_action: string | null;
   promo_issued: boolean;
   platform: string | null;
   status: string;
@@ -28,6 +30,7 @@ export async function getOrCreateUser(
   db: SupabaseClient,
   from: { id: number; username?: string; first_name?: string },
   chatId: number,
+  source?: string | null,
 ): Promise<User> {
   const { data: existing } = await db
     .from("users")
@@ -44,6 +47,7 @@ export async function getOrCreateUser(
       chat_id: chatId,
       username: from.username ?? null,
       first_name: from.first_name ?? null,
+      source: source ?? null,
       state: "new",
     })
     .select("*")
@@ -66,27 +70,46 @@ export async function updateUser(
 }
 
 /**
- * Records a feedback message and recomputes the streak.
- * Returns the new streak and whether it was the first feedback today.
+ * Records a piece of daily feedback (rating and/or free text).
+ * Keeps one row per user per day: the rating is set, text is appended.
+ * Recomputes the streak on the first feedback of the day.
  */
-export async function recordFeedback(
+export async function submitFeedback(
   db: SupabaseClient,
   user: User,
-  text: string,
+  input: { rating?: number; text?: string },
 ): Promise<{ streak: number; firstToday: boolean }> {
   const today = localDateStr();
 
-  // Always store the raw message.
-  await db.from("feedback").insert({
-    user_id: user.id,
-    feedback_date: today,
-    text,
-  });
+  const { data: existing } = await db
+    .from("feedback")
+    .select("id, text")
+    .eq("user_id", user.id)
+    .eq("feedback_date", today)
+    .maybeSingle();
 
-  if (user.last_feedback_date === today) {
-    // Already counted today — keep streak, just store the extra message.
-    return { streak: user.streak, firstToday: false };
+  if (existing) {
+    const merged = input.text
+      ? (existing.text ? `${existing.text}\n${input.text}` : input.text)
+      : existing.text;
+    await db
+      .from("feedback")
+      .update({
+        text: merged,
+        ...(input.rating != null ? { rating: input.rating } : {}),
+      })
+      .eq("id", existing.id);
+  } else {
+    await db.from("feedback").insert({
+      user_id: user.id,
+      feedback_date: today,
+      rating: input.rating ?? null,
+      text: input.text ?? null,
+    });
   }
+
+  const firstToday = user.last_feedback_date !== today;
+  if (!firstToday) return { streak: user.streak, firstToday: false };
 
   let streak = 1;
   if (user.last_feedback_date) {

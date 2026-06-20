@@ -7,3 +7,6 @@ verify_jwt = false
 
 [functions.send-reminders]
 verify_jwt = false
+
+[functions.admin-bot]
+verify_jwt = false

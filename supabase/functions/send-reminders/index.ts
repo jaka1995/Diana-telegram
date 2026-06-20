@@ -6,7 +6,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { makeTg } from "../_shared/telegram.ts";
 import { reminderText } from "../_shared/messages.ts";
-import { dayDiff, localDateStr } from "../_shared/dates.ts";
+import { dayDiff, localDateStr, localHour } from "../_shared/dates.ts";
+import { getSettings } from "../_shared/settings.ts";
 import { User } from "../_shared/users.ts";
 
 const BOT_TOKEN = Deno.env.get("BOT_TOKEN")!;
@@ -24,6 +25,16 @@ Deno.serve(async (req) => {
   const auth = req.headers.get("authorization");
   if (auth !== `Bearer ${CRON_SECRET}`) {
     return new Response("unauthorized", { status: 401 });
+  }
+
+  // Cron runs hourly; only act at the configured reminder hour (and if enabled).
+  // Pass ?force=1 to bypass the time/enabled gate for manual testing.
+  const force = new URL(req.url).searchParams.get("force") === "1";
+  const settings = await getSettings(db);
+  if (!force && (!settings.reminder_enabled || localHour() !== settings.reminder_hour)) {
+    return new Response(JSON.stringify({ ok: true, skipped: true }), {
+      headers: { "content-type": "application/json" },
+    });
   }
 
   const today = localDateStr();
@@ -51,7 +62,7 @@ Deno.serve(async (req) => {
     const daysMissed = Math.max(0, dayDiff(today, reference));
 
     const { text, kb } = reminderText(daysMissed, u.streak);
-    const res = await tg.sendMessage(u.chat_id, text, kb ?? {});
+    const res = await tg.sendMessage(u.chat_id, text, kb);
     if (res.ok) sent++;
 
     // Update engagement status + streak bookkeeping.
@@ -60,11 +71,11 @@ Deno.serve(async (req) => {
       streak: daysMissed >= 1 ? 0 : u.streak,
       last_reminder_at: new Date().toISOString(),
     };
-    if (daysMissed >= 7 && u.status !== "churned") {
+    if (settings.escalation_enabled && daysMissed >= 7 && u.status !== "churned") {
       patch.status = "churned";
       newlyChurned++;
       await notifyAdmin(`🔴 Пользователь ушёл (7+ дней без фидбэка): ${describe(u)}`);
-    } else if (daysMissed >= 3 && u.status === "active") {
+    } else if (settings.escalation_enabled && daysMissed >= 3 && u.status === "active") {
       patch.status = "at_risk";
       newlyAtRisk++;
       await notifyAdmin(`🟡 Под риском (3+ дней без фидбэка): ${describe(u)}`);

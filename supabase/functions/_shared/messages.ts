@@ -33,9 +33,8 @@ export const emailSavedKb = keyboard([[btn("Получить промокод", 
 // ---- Promo code --------------------------------------------------------------
 
 export function promoText(): string {
-  return `Ваш промокод:\n\n<code>${PROMO_CODE}</code>\n\nНажмите на код, чтобы скопировать. Дальше — инструкция по активации 👇`;
+  return `Ваш промокод:\n\n<code>${PROMO_CODE}</code>\n\nНажмите на код, чтобы скопировать. Ниже — инструкция по активации 👇`;
 }
-export const promoKb = keyboard([[btn("Инструкция", "instruction")]]);
 
 export const INSTRUCTION = `<b>Инструкция по применению промокода:</b>
 1. Скачайте приложение Flymind по ссылкам ниже
@@ -65,6 +64,29 @@ export const HELP = `<b>Flymind</b> — ваш карманный эксперт
 
 // ---- Feedback ----------------------------------------------------------------
 
+// Inline 1–5 rating keyboard, reused in onboarding and reminders.
+export const ratingKb = keyboard([[
+  btn("1", "rate:1"),
+  btn("2", "rate:2"),
+  btn("3", "rate:3"),
+  btn("4", "rate:4"),
+  btn("5", "rate:5"),
+]]);
+
+export const ASK_RATING =
+  "Как Вам приложение Flymind сегодня? Оцените от 1 до 5 ⭐";
+
+export function ratingThanks(rating: number, streak: number): string {
+  return `Спасибо за оценку: <b>${"⭐".repeat(rating)}</b> (${rating}/5)!
+
+При желании добавьте комментарий — просто напишите его сообщением. Это поможет нам стать лучше 🙏
+
+Ваша серия: <b>${streak} дн.</b> 🔥`;
+}
+
+export const COMMENT_SAVED =
+  "Записали Ваш комментарий, спасибо! ✍️ До встречи завтра 🙌";
+
 export function feedbackThanks(streak: number): string {
   const flame = streak > 0 ? ` 🔥` : "";
   return `Спасибо за обратную связь! 🙏 Мы её записали.
@@ -90,20 +112,22 @@ export const NUDGE_START =
 
 export function reminderText(daysMissed: number, streak: number): {
   text: string;
-  kb?: { reply_markup: { inline_keyboard: InlineButton[][] } };
+  kb: { reply_markup: { inline_keyboard: InlineButton[][] } };
 } {
   if (daysMissed >= 7) {
     return {
       text: `Мы по Вам скучаем 🥺
 Вы давно не делились впечатлениями о Flymind. Ваше мнение очень важно — оно напрямую влияет на развитие приложения.
 
-Напишите пару слов прямо сейчас, и мы продолжим путь к пожизненной подписке вместе ❤️`,
+Поставьте оценку приложению сегодня, и мы продолжим путь к пожизненной подписке вместе ❤️`,
+      kb: ratingKb,
     };
   }
   if (daysMissed >= 3) {
     return {
       text: `Привет! 👋 Уже несколько дней без обратной связи.
-Серия сбросилась, но это легко начать заново — просто напишите, как Вам приложение сегодня 🙏`,
+Серия сбросилась, но это легко начать заново — оцените приложение сегодня 🙏`,
+      kb: ratingKb,
     };
   }
   const streakLine = streak > 0
@@ -111,6 +135,7 @@ export function reminderText(daysMissed: number, streak: number): {
     : "";
   return {
     text: `Напоминание 🔔
-Как проходит использование Flymind сегодня? Поделитесь, пожалуйста, обратной связью — просто напишите сообщение в этот чат.${streakLine}`,
+Как проходит использование Flymind сегодня? Оцените от 1 до 5 ⭐ или просто напишите пару слов.${streakLine}`,
+    kb: ratingKb,
   };
 }
