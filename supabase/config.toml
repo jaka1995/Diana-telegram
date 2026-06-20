@@ -1,0 +1,9 @@
+project_id = "flymind-bot"
+
+# Telegram and pg_cron authenticate via headers/secret tokens, not Supabase
+# JWTs, so JWT verification must be disabled for both functions.
+[functions.telegram-bot]
+verify_jwt = false
+
+[functions.send-reminders]
+verify_jwt = false
