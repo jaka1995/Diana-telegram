@@ -70,9 +70,35 @@ scripts/set-webhook.sh         # регистрация вебхуков + ме�
 .env.example                   # список секретов
 ```
 
-## Деплой (один раз)
+## Деплой через GitHub Actions (без терминала)
+
+Самый простой путь — всё деплоит workflow `.github/workflows/deploy.yml`.
+
+1. Создай **personal access token** Supabase: https://supabase.com/dashboard/account/tokens
+2. В репозитории: **Settings → Secrets and variables → Actions → New repository secret** — добавь:
+
+   | Secret | Значение |
+   |--------|----------|
+   | `SUPABASE_ACCESS_TOKEN` | токен из шага 1 (`sbp_...`) |
+   | `SUPABASE_PROJECT_REF` | `snsroffugjanyhhghqhp` |
+   | `SUPABASE_DB_PASSWORD` | пароль БД (Project Settings → Database) |
+   | `BOT_TOKEN`, `ADMIN_BOT_TOKEN` | токены ботов от @BotFather |
+   | `WEBHOOK_SECRET`, `ADMIN_WEBHOOK_SECRET`, `CRON_SECRET` | любые длинные строки |
+   | `PROMO_CODE`, `IOS_URL`, `ANDROID_URL` | промокод и ссылки на сторы |
+   | `ADMIN_CHAT_ID`, `ADMIN_IDS` | твой Telegram ID (@userinfobot) |
+   | `BOT_TZ` | `Asia/Almaty` |
+
+3. Вкладка **Actions → Deploy bots to Supabase → Run workflow**.
+
+Workflow сам применит миграции, зальёт секреты, задеплоит 3 функции,
+зарегистрирует вебхуки и поставит ежечасный cron. Дальше — `/start`
+основному боту и `/menu` админскому.
+
+## Деплой через CLI (альтернатива)
 
 Нужен [Supabase CLI](https://supabase.com/docs/guides/cli) и бесплатный проект Supabase.
+Можно одной командой: заполни `.env` (см. `.env.example`) и запусти
+`PROJECT_REF=<ref> ./scripts/deploy.sh`. Либо вручную по шагам:
 
 1. **Создайте двух ботов** у [@BotFather](https://t.me/BotFather): основной
    (`BOT_TOKEN`) и админский (`ADMIN_BOT_TOKEN`).
