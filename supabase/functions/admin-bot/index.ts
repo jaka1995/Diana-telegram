@@ -14,8 +14,9 @@ import { BOT_TZ } from "../_shared/dates.ts";
 const ADMIN_BOT_TOKEN = Deno.env.get("ADMIN_BOT_TOKEN")!;
 const USER_BOT_TOKEN = Deno.env.get("BOT_TOKEN")!;
 const WEBHOOK_SECRET = Deno.env.get("ADMIN_WEBHOOK_SECRET")!;
-const ADMIN_IDS = (Deno.env.get("ADMIN_IDS") ?? "")
-  .split(",").map((s) => Number(s.trim())).filter(Boolean);
+// Accepts either numeric Telegram ids or @usernames (case-insensitive).
+const ADMIN_ENTRIES = (Deno.env.get("ADMIN_IDS") ?? "")
+  .split(",").map((s) => s.trim().replace(/^@/, "").toLowerCase()).filter(Boolean);
 
 const db = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -24,7 +25,12 @@ const db = createClient(
 const tg = makeTg(ADMIN_BOT_TOKEN); // replies in the admin chat
 const userTg = makeTg(USER_BOT_TOKEN); // broadcasting to end users
 
-const isAdmin = (id: number) => ADMIN_IDS.includes(id);
+function isAdmin(from: { id: number; username?: string } | undefined): boolean {
+  if (!from) return false;
+  if (ADMIN_ENTRIES.includes(String(from.id))) return true;
+  if (from.username && ADMIN_ENTRIES.includes(from.username.toLowerCase())) return true;
+  return false;
+}
 
 const MENU = keyboard([
   [btn("📊 Статистика", "stats"), btn("🗒 Последние отзывы", "fb:0")],
@@ -60,7 +66,7 @@ async function onMessage(msg: any) {
   const chatId = msg.chat.id;
   const fromId = msg.from?.id;
   const text: string = (msg.text ?? "").trim();
-  if (!fromId || !isAdmin(fromId)) {
+  if (!isAdmin(msg.from)) {
     return void tg.sendMessage(chatId, "⛔ Доступ только для администраторов.");
   }
 
@@ -95,7 +101,7 @@ async function onCallback(cq: any) {
   const fromId = cq.from.id;
   const chatId = cq.message?.chat?.id ?? fromId;
   const data: string = cq.data;
-  if (!isAdmin(fromId)) return void tg.answerCallbackQuery(cq.id, "⛔");
+  if (!isAdmin(cq.from)) return void tg.answerCallbackQuery(cq.id, "⛔");
   await tg.answerCallbackQuery(cq.id);
 
   if (data === "menu") return showMenu(chatId);
