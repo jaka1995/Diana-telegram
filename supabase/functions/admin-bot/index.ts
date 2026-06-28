@@ -70,6 +70,9 @@ async function onMessage(msg: any) {
     return void tg.sendMessage(chatId, "⛔ Доступ только для администраторов.");
   }
 
+  // Remember where to send churn/at-risk alerts (the reminder job reads this).
+  await setSetting(db, "admin_chat_id", chatId);
+
   if (text === "/start" || text === "/menu") {
     await clearState(fromId);
     return showMenu(chatId);
@@ -250,7 +253,7 @@ async function findUser(chatId: number, q: string) {
     keyboard([
       ...rows.map((u: any) => [btn(
         `${u.username ? "@" + u.username : (u.first_name ?? u.id)} · ${u.email ?? "—"}`,
-        `ufb:${u.id}`,
+        `u:show:${u.id}`,
       )]),
       [btn("‹ Меню", "menu")],
     ]),
@@ -315,8 +318,17 @@ async function broadcast(chatId: number, text: string) {
   let ok = 0, fail = 0;
   await tg.sendMessage(chatId, `Отправляю ${targets.length} сообщений…`);
   for (const t of targets) {
-    const res = await userTg.sendMessage(t.chat_id, text);
-    res.ok ? ok++ : fail++;
+    // Send as plain text so the admin's message can't break HTML parsing.
+    const res = await userTg.sendMessage(t.chat_id, text, { parse_mode: undefined });
+    if (res.ok) {
+      ok++;
+    } else {
+      fail++;
+      // Drop users who blocked the bot so we stop messaging them.
+      if (res.error_code === 403) {
+        await db.from("users").update({ reminder_enabled: false }).eq("chat_id", t.chat_id);
+      }
+    }
     await new Promise((r) => setTimeout(r, 60));
   }
   await tg.sendMessage(chatId, `✅ Готово. Доставлено: <b>${ok}</b>, ошибок: <b>${fail}</b>.`, backKb);

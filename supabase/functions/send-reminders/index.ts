@@ -31,6 +31,8 @@ Deno.serve(async (req) => {
   // Pass ?force=1 to bypass the time/enabled gate for manual testing.
   const force = new URL(req.url).searchParams.get("force") === "1";
   const settings = await getSettings(db);
+  // Prefer the admin chat captured by the admin bot; fall back to the env var.
+  const adminChat = Number(settings.admin_chat_id) || ADMIN_CHAT_ID;
   if (!force && (!settings.reminder_enabled || localHour() !== settings.reminder_hour)) {
     return new Response(JSON.stringify({ ok: true, skipped: true }), {
       headers: { "content-type": "application/json" },
@@ -61,24 +63,32 @@ Deno.serve(async (req) => {
       (u.onboarded_at ? localDateStr(new Date(u.onboarded_at)) : today);
     const daysMissed = Math.max(0, dayDiff(today, reference));
 
+    // Win-back window: stop pestering users who churned more than 30 days ago.
+    if (u.status === "churned" && daysMissed > 30) continue;
+
     const { text, kb } = reminderText(daysMissed, u.streak);
     const res = await tg.sendMessage(u.chat_id, text, kb);
     if (res.ok) sent++;
+    // If the user blocked the bot (403), stop reminding them.
+    const blocked = !res.ok && res.error_code === 403;
 
-    // Update engagement status + streak bookkeeping.
+    // Update engagement status + streak bookkeeping. The streak only breaks
+    // after a FULL missed day (daysMissed >= 2); daysMissed == 1 just means
+    // "fed yesterday, not yet today" — today is still the day to continue it.
     const patch: Partial<User> = {
       missed_count: daysMissed,
-      streak: daysMissed >= 1 ? 0 : u.streak,
+      streak: daysMissed >= 2 ? 0 : u.streak,
       last_reminder_at: new Date().toISOString(),
+      ...(blocked ? { reminder_enabled: false } : {}),
     };
     if (settings.escalation_enabled && daysMissed >= 7 && u.status !== "churned") {
       patch.status = "churned";
       newlyChurned++;
-      await notifyAdmin(`🔴 Пользователь ушёл (7+ дней без фидбэка): ${describe(u)}`);
+      await notifyAdmin(adminChat, `🔴 Пользователь ушёл (7+ дней без фидбэка): ${describe(u)}`);
     } else if (settings.escalation_enabled && daysMissed >= 3 && u.status === "active") {
       patch.status = "at_risk";
       newlyAtRisk++;
-      await notifyAdmin(`🟡 Под риском (3+ дней без фидбэка): ${describe(u)}`);
+      await notifyAdmin(adminChat, `🟡 Под риском (3+ дней без фидбэка): ${describe(u)}`);
     }
     await db.from("users").update(patch).eq("id", u.id);
 
@@ -98,7 +108,7 @@ function describe(u: User): string {
   return `${handle} (${u.email ?? "без email"})`;
 }
 
-async function notifyAdmin(text: string) {
-  if (!ADMIN_CHAT_ID) return;
-  await tg.sendMessage(ADMIN_CHAT_ID, text);
+async function notifyAdmin(chatId: number, text: string) {
+  if (!chatId) return;
+  await tg.sendMessage(chatId, text);
 }

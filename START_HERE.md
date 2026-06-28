@@ -19,11 +19,11 @@ brew install supabase/tap/supabase jq
 
 # 2. конфиг: создай .env из шаблона и впиши значения
 cp .env.example .env
-#   открой .env и заполни: BOT_TOKEN, ADMIN_BOT_TOKEN, секреты, ADMIN_IDS=@WiseOracle и т.д.
+#   открой .env и заполни: SUPABASE_ACCESS_TOKEN (sbp_...), BOT_TOKEN,
+#   ADMIN_BOT_TOKEN, секреты, ADMIN_IDS=@WiseOracle и т.д.
 #   (готовые значения — в нашей переписке / в DEPLOY.md)
 
-# 3. деплой
-export SUPABASE_ACCESS_TOKEN=sbp_...   # твой токен из supabase.com/dashboard/account/tokens
+# 3. деплой (токен берётся из .env — экспортировать не нужно)
 ./scripts/deploy_api.sh
 ```
 

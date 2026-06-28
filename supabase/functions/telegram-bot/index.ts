@@ -150,11 +150,20 @@ async function handleRating(user: User, rating: number) {
 async function handleFeedback(user: User, text: string) {
   if (!text) return;
 
-  if (user.pending_action === "comment") {
+  // Treat the message as a comment only if we're still on the same day the user
+  // rated — a stale "comment" flag left over from a previous day must not hijack
+  // today's first feedback (which should count toward the streak).
+  const commentMode = user.pending_action === "comment" &&
+    user.last_feedback_date === localDateStr();
+
+  if (commentMode) {
     await submitFeedback(db, user, { text });
     await updateUser(db, user.id, { pending_action: null });
     return void tg.sendMessage(user.chat_id, M.COMMENT_SAVED);
   }
+
+  // Clear any stale flag before recording fresh feedback.
+  if (user.pending_action) await updateUser(db, user.id, { pending_action: null });
 
   const { streak, firstToday } = await submitFeedback(db, user, { text });
   const reply = firstToday ? M.feedbackThanks(streak) : M.alreadyToday(streak);

@@ -7,6 +7,9 @@ export interface BotSettings {
   reminder_enabled: boolean;
   reminder_hour: number; // 0–23 in BOT_TZ
   escalation_enabled: boolean;
+  // Telegram chat id that receives churn/at-risk alerts. Auto-captured the first
+  // time an admin opens the admin bot, so no manual numeric id is needed.
+  admin_chat_id?: number;
 }
 
 export const DEFAULT_SETTINGS: BotSettings = {

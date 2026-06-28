@@ -6,20 +6,20 @@
 # Prereqs:
 #   - Supabase CLI installed (https://supabase.com/docs/guides/cli)
 #   - jq, curl
-#   - a filled ./.env  (copy from .env.example)
-#   - export SUPABASE_ACCESS_TOKEN=sbp_...   (or put it in your shell env)
+#   - a filled ./.env  (copy from .env.example), including SUPABASE_ACCESS_TOKEN
 #
-# Run:
-#   export SUPABASE_ACCESS_TOKEN=sbp_xxx
+# Run (token is read from .env, no need to export it every time):
 #   ./scripts/deploy_api.sh
+# You can still override it for one run:  SUPABASE_ACCESS_TOKEN=sbp_xxx ./scripts/deploy_api.sh
 #
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-: "${SUPABASE_ACCESS_TOKEN:?export SUPABASE_ACCESS_TOKEN=sbp_...}"
 [[ -f .env ]] || { echo "❌ .env not found (copy from .env.example)"; exit 1; }
-
 set -a; source ./.env; set +a
+
+# Token may come from the environment OR from .env (SUPABASE_ACCESS_TOKEN=sbp_...).
+: "${SUPABASE_ACCESS_TOKEN:?set SUPABASE_ACCESS_TOKEN in .env (or export it): sbp_...}"
 REF="${SUPABASE_PROJECT_REF:?set SUPABASE_PROJECT_REF in .env}"
 API="https://api.supabase.com/v1/projects/${REF}"
 

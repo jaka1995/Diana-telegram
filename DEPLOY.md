@@ -16,6 +16,7 @@ cd Diana-telegram
 
 # конфиг (значения подставь свои)
 cat > .env <<'EOF'
+SUPABASE_ACCESS_TOKEN=<твой sbp_... токен из supabase.com/dashboard/account/tokens>
 SUPABASE_PROJECT_REF=snsroffugjanyhhghqhp
 BOT_TOKEN=<токен @FlyMindReviewBot>
 ADMIN_BOT_TOKEN=<токен @FlyMindAdminBot>
@@ -30,10 +31,13 @@ ADMIN_IDS=@WiseOracle
 BOT_TZ=Asia/Almaty
 EOF
 
-# деплой
-export SUPABASE_ACCESS_TOKEN=<твой sbp_... токен>
+# деплой (токен берётся из .env — экспортировать каждый раз не нужно)
 ./scripts/deploy_api.sh
 ```
+
+> Токен `SUPABASE_ACCESS_TOKEN` теперь лежит в `.env` (он в `.gitignore`, в git не
+> попадёт и в секреты функций не заливается). При следующих деплоях достаточно
+> `./scripts/deploy_api.sh`. Сменить токен — поправь одну строку в `.env`.
 
 Скрипт сам: применит схему, зальёт секреты, задеплоит 3 функции,
 зарегистрирует вебхуки обоих ботов и поставит ежечасный cron.

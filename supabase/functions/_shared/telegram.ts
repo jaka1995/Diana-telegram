@@ -20,7 +20,11 @@ export function keyboard(rows: InlineButton[][]) {
 export function makeTg(token: string) {
   const base = `https://api.telegram.org/bot${token}`;
 
-  async function call(method: string, body: Record<string, unknown>) {
+  async function call(
+    method: string,
+    body: Record<string, unknown>,
+    canRetry = true,
+  ): Promise<any> {
     const res = await fetch(`${base}/${method}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -28,6 +32,12 @@ export function makeTg(token: string) {
     });
     const data = await res.json();
     if (!data.ok) {
+      // Respect Telegram rate limiting: wait the suggested time and retry once.
+      if (data.error_code === 429 && canRetry) {
+        const wait = ((data.parameters?.retry_after ?? 1) * 1000) + 100;
+        await new Promise((r) => setTimeout(r, wait));
+        return call(method, body, false);
+      }
       console.error(`Telegram API error [${method}]:`, JSON.stringify(data));
     }
     return data;
